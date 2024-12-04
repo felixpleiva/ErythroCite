@@ -1,2 +1,2 @@
 # ErythroCite
- A database of cell size for fishes. I will add files in this repo once everything is ready to submit
+ A database of cell size for fishes. I will add files here after acceptance of the ms.
