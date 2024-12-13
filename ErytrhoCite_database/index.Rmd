@@ -1,0 +1,1388 @@
+---
+title: 'ErythroCite database'
+author: "Félix P. Leiva"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    code_download: true
+    code_folding: hide
+    depth: 4
+    number_sections: no
+    theme:  cosmo
+    toc: yes
+    toc_float: yes
+    toc_depth: 4
+  pdf_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Welcome
+
+This is an R Markdown document that summarises the main figures and data associated with the information present in the **ErythroCite** database. This database uses a systematic map to search for information on the cell size of fish blood cells.
+
+## Citation
+
+When using the data and/or code associated with this project, they should be cited as follows:
+
+-   Leiva, F. P., Molina-Venegas, R., Alter, K., Freire, C., Hermaniuk, A., Serre-Fredj, L., Shokri, M., Czarnołęski, M., & Mark, F. C. (2025). ErythroCite: A systematic map and open-source database on red blood cell size of fishes.
+
+-   Leiva, F. P., Molina-Venegas, R., Alter, K., Freire, C., Hermaniuk, A., Serre-Fredj, L., Shokri, M., Czarnołęski, M., & Mark, F. C. (2025). ErythroCite: A systematic map and open-source database on red blood cell size of fishes. Zenodo.
+
+## Contact
+
+This script is authored by **Félix P. Leiva**. For any questions related to this resource, please contact me at the email address: [**felixpleiva\@gmail.com**](mailto:felixpleiva@gmail.com).
+
+## Licence
+
+This repository is provided by the author under the licence [Attribution-NonCommercial-NoDerivatives 4.0 International](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.en).
+
+## Clean working space
+
+```{r}
+rm(list = ls())
+```
+
+## Load libraries
+
+```{r}
+library(kableExtra)
+library(DataExplorer)
+library(dplyr)
+library(ggplot2)
+library(RefManageR)
+library(ggpubr)
+library(cowplot)
+library(details) # arrange session info
+library(ape)
+library(ggtree)
+library(tibble)
+library(ggthemes)
+library(fishualize)
+library(rnaturalearth)
+```
+
+## Import data
+
+The associated data, as well as supplementary files, were directly imported from:
+
+**GitHub**: <https://github.com/felixpleiva/ErythroCite>
+
+**Zenodo**: pending
+
+## Load data
+
+```{r}
+dat <- read.csv("../outputs/cell_size_with_taxonomy.csv")
+```
+
+## Load phylogenetic tree
+
+```{r}
+tree<-read.tree("../outputs/Phylogenetic tree for 650 species included in ErythroCite.tre")
+```
+
+## Load references
+
+```{r}
+refs <- ReadBib("../outputs/ErythroCite literature.bib")
+```
+
+## Data exploration
+
+```{r}
+# Check and reformat variables
+str(dat)
+
+dat$sex <- as.factor(dat$sex)
+dat$life_stage <- as.factor(dat$life_stage)
+dat$sample_size <- as.factor(dat$sample_size)
+dat$number_of_specimens <- as.factor(dat$number_of_specimens)
+
+str(dat)
+head(dat)
+```
+
+Checks following Code for Pottier et al. 2021. Sexual (in)equality? A meta-analysis of sex differences in thermal acclimation capacity across ectotherms.
+
+```{r}
+# Inspection of the summary of the data set
+kable(summary(dat), "html") %>%
+  kable_styling("striped", position = "left") %>%
+  scroll_box(width = "100%", height = "500px")
+```
+
+In our comprehensive analysis, we systematically evaluated key cellular parameters across multiple studies, including cell size, cell volume, nucleus area, nucleus volume, and mean corpuscular volume. By calculating and comparing the mean, minimum, and maximum values for each metric, I sought to identify potential outliers and determine whether extreme values were disproportionately concentrated within specific studies.
+
+```{r}
+# Check for extreme values
+kable(dat %>%
+        group_by(key) %>%
+        summarise(mean_cell_area = mean(cell_area), max_cell_area = max(cell_area), min_cell_area = min(cell_area), sd_cell_area = sd(cell_area),
+                  mean_cell_volume = mean(cell_volume), max_cell_volume = max(cell_volume), min_cell_volume = min(cell_volume), sd_cell_volume = sd(cell_volume),
+                  mean_nucleus_area = mean(nucleus_area), max_nucleus_area = max(nucleus_area), min_nucleus_area = min(nucleus_area), sd_nucleus_area = sd(nucleus_area),
+                  mean_nucleus_volume = mean(nucleus_volume), max_nucleus_volume= max(nucleus_volume), min_nucleus_volume = min(nucleus_volume), sd_nucleus_volume = sd(nucleus_volume),
+                  mean_mcv = mean(mcv), max_mcv = max(mcv), min_mcv = min(mcv), sd_mcv = sd(mcv), 
+                  n = n())) %>%
+  kable_styling("striped", position = "left") %>%
+  scroll_box(width = "100%", height = "500px")
+```
+
+Percentage of missing data
+
+```{r}
+plot_histogram(dat)
+```
+
+I have undertaken a thorough examination of the data related to key variables associated with each trait under investigation. Through careful scrutiny of frequency distribution histograms, I have established well-defined distribution thresholds for these variables.
+
+### Check data of cell area
+
+```{r}
+dat %>%
+  filter(is.finite(cell_area)) %>%
+  ggplot(aes(log10(cell_area))) + 
+  geom_histogram(fill = "darkcyan", col = "black", binwidth = 0.05) +
+  theme_classic() + 
+  labs(title = "Cell Area")
+
+dat %>%   
+  filter(is.finite(cell_area)) %>%
+  mutate(log10_cell_area = log10(cell_area)) %>%  # Calculate log10(cell_area)
+  filter(log10_cell_area < 1.3 | log10_cell_area > 2.9) %>%  # Apply thresholds, based on data distribution
+  select(key, class, species_reported, log10_cell_area, cell_area) %>%  # Select relevant columns
+  arrange(key, cell_area)
+```
+
+### Check data of cell volume
+
+```{r}
+ggplot(dat %>% filter(is.finite(cell_volume)), aes(log10(cell_volume))) + 
+  geom_histogram(fill = "darkcyan", color = "black", binwidth = 0.05) +
+  theme_classic() + 
+  labs(title = "Cell Volume")
+
+dat %>%
+  filter(is.finite(cell_volume)) %>%
+  mutate(log10_cell_volume = log10(cell_volume)) %>%  # Calculate log10(cell_volume)
+  filter(log10_cell_volume < 2 | log10_cell_volume > 3) %>%  # Apply thresholds, based on data distribution
+  select(key, class, species_reported, log10_cell_volume, cell_volume) %>%  # Select relevant columns
+  arrange(key, cell_volume)
+```
+
+### Check data of nucleus area
+
+```{r}
+dat %>%
+  filter(is.finite(nucleus_area)) %>%
+  ggplot(aes(log10(nucleus_area))) + 
+  geom_histogram(fill = "darkcyan", col = "black", binwidth = 0.05) +
+  theme_classic() + 
+  labs(title = "Nucleus Area")
+
+dat %>%
+  filter(is.finite(nucleus_area)) %>%
+  mutate(log10_nucleus_area = log10(nucleus_area)) %>%  # Calculate log10(nucleus_area)
+  filter(log10_nucleus_area < 0.6 | log10_nucleus_area > 2) %>%  # Apply thresholds, based on data distribution
+  select(key, class, species_reported, log10_nucleus_area, nucleus_area) %>%  # Select relevant columns
+  arrange(key, nucleus_area)
+```
+
+### Check data of nucleus volume
+
+```{r}
+dat %>%
+  filter(is.finite(nucleus_volume)) %>%
+  ggplot(aes(log10(nucleus_volume))) + 
+  geom_histogram(fill = "darkcyan", col = "black", binwidth = 0.05) +
+  theme_classic() + 
+  labs(title = "Nucleus Volume")
+
+dat %>%
+  filter(is.finite(nucleus_volume)) %>%
+  mutate(log10_nucleus_volume = log10(nucleus_volume)) %>%  # Calculate log10(nucleus_volume)
+  filter(log10_nucleus_volume < 0.8 | log10_nucleus_volume > 2.5) %>%  # Apply thresholds, based on data distribution (p2)
+  select(key, class, species_reported, log10_nucleus_volume, nucleus_volume) %>%  # Select relevant columns
+  arrange(key, nucleus_volume)
+
+```
+
+### Check data of cell length
+
+```{r}
+dat %>%      
+  filter(is.finite(cell_length)) %>%
+  ggplot(aes(log10(cell_length))) + 
+  geom_histogram(fill = "darkcyan", col = "black", binwidth = 0.05) +
+  theme_classic() + 
+  labs(title = "Cell Length")
+
+dat %>%
+  filter(is.finite(cell_length)) %>%
+  mutate(log10_cell_length = log10(cell_length)) %>%  # Calculate log10(cell_length)
+  filter(log10_cell_length < 0.8 | log10_cell_length > 1.5) %>%  # Apply thresholds, based on data distribution
+  select(key, location_description, class, species_reported, log10_cell_length, cell_length) %>%  # Select relevant columns
+  arrange(key,location_description, cell_length)
+
+```
+
+### Check data of cell width
+
+```{r}
+dat %>% 
+  filter(is.finite(cell_width)) %>%
+  ggplot(aes(log10(cell_width))) + 
+  geom_histogram(fill = "darkcyan", col = "black", binwidth = 0.05) +
+  theme_classic() + 
+  labs(title = "Cell Width")
+
+dat %>%
+  filter(is.finite(cell_width)) %>%
+  mutate(log10_cell_width = log10(cell_width)) %>%  # Calculate log10(cell_width)
+  filter(log10_cell_width < 0.6 | log10_cell_width > 1.3) %>%  # Apply thresholds, based on data distribution
+  select(key, class, species_reported, log10_cell_width, cell_width) %>%  # Select relevant columns
+  arrange(key, cell_width)
+```
+
+### Check data of nucleus length
+
+```{r}
+dat %>%      
+  filter(is.finite(nucleus_length)) %>%
+  ggplot(aes(log10(nucleus_length))) + 
+  geom_histogram(fill = "darkcyan", col = "black", binwidth = 0.05) +
+  theme_classic() + 
+  labs(title = "Nucleus Length")
+
+dat %>%
+  filter(is.finite(nucleus_length)) %>%
+  mutate(log10_nucleus_length = log10(nucleus_length)) %>%  # Calculate log10(nucleus_length)
+  filter(log10_nucleus_length < 0.5 | log10_nucleus_length > 1) %>%  # Apply thresholds, based on data distribution
+  select(key, class, species_reported, log10_nucleus_length, nucleus_length) %>%  # Select relevant columns
+  arrange(key, nucleus_length)
+```
+
+### Check data of nucleus width
+
+```{r}
+dat %>%      
+  filter(is.finite(nucleus_width)) %>%
+  ggplot(aes(log10(nucleus_width))) + 
+  geom_histogram(fill = "darkcyan", col = "black", binwidth = 0.05) +
+  theme_classic() + 
+  labs(title = "Nucleus Width")
+
+dat %>%
+  filter(is.finite(nucleus_width)) %>%
+  mutate(log10_nucleus_width = log10(nucleus_width)) %>%  # Calculate log10(nucleus_width)
+  filter(log10_nucleus_width < 0.25 | log10_nucleus_width > 0.85) %>%  # Apply thresholds, based on data distribution
+  select(key, class, species_reported, log10_nucleus_width, nucleus_width) %>%  # Select relevant columns
+  arrange(key, nucleus_width)
+```
+
+### Check data of Mean Corpuscular Volume (MCV)
+
+```{r}
+dat %>%
+  filter(is.finite(mcv)) %>%
+  ggplot(aes(log10(mcv))) + 
+  geom_histogram(fill = "darkcyan", col = "black", binwidth = 0.1) +
+  theme_classic() + 
+  labs(title = "Mean Corpuscular Volume")
+
+dat %>%
+  filter(is.finite(mcv)) %>%
+  mutate(log10_mcv = log10(mcv)) %>%  # Calculate log10(mcv)
+  filter(log10_mcv < 1 | log10_mcv > 3) %>%  # Apply thresholds, based on data distribution
+  select(key, class, species_reported, log10_mcv, mcv) %>%  # Select relevant columns
+  arrange(key, mcv)
+```
+
+For a particular study (rayyan-33186404), I observed that the decimal notation (full stops versus commas) was inconsistent. Consequently, I decided to calculate the MCV based on the haematocrit and erythrocyte count values using the formula described in the main text of our manuscript. Employing this formula yielded an approximate value of 187.1622 μm³. I also replaced the error of MCV by NA.
+
+```{r}
+dat <- dat %>%
+  mutate(
+    mcv = ifelse(species_reported == "Heterotis niloticus" & key == "rayyan-33186404", 187.1622, mcv),
+    mcv_error = ifelse(species_reported == "Heterotis niloticus" & key == "rayyan-33186404", NA, mcv_error)
+  )
+```
+
+**Upon making this adjustment, I observed that two distinct studies in the database reported the same MCV value**. I noticed this because it was the similar group of authors, and the mean of body mass of the fish was identical. This corroborated the issues with the decimal places. So the correct value of MCV is 191.2.
+
+```{r}
+dat %>%
+  filter(species_reported == "Heterotis niloticus") %>%
+  select(key, species_reported,body_mass_gram, mcv, mcv_error)
+```
+
+As a result of this, the study containing the error was excluded from the database. In Figure 1, this study will be labelled under "RBC expressed in wrong units".
+
+```{r}
+# Lets exclude that study
+dat <- dat  %>%
+  filter(key != "rayyan-33186404")
+
+# Lets check again the data on MCV
+dat %>%
+  filter(is.finite(mcv)) %>%
+  ggplot(aes(log10(mcv))) + 
+  geom_histogram(fill = "darkcyan", col = "black", binwidth = 0.1) +
+  theme_classic() + 
+  labs(title = "Mean Corpuscular Volume")
+
+dat %>%
+  filter(is.finite(mcv)) %>%
+  mutate(log10_mcv = log10(mcv)) %>%  # Calculate log10(mcv)
+  filter(log10_mcv < 1.2 | log10_mcv > 3) %>%  # Apply thresholds, based on data distribution
+  select(key, class, species_reported, log10_mcv, mcv) %>%  # Select relevant columns
+  arrange(key, mcv)
+```
+
+### Calculation of Cell and Nuclear Dimensions
+
+I also calculate the cell area, cell volume, nuclear area, and nuclear volume using available length and width data. This approach allows us to derive these parameters when direct measurements are unavailable, thereby enhancing the completeness of ErythroCite.
+
+For this, I employed standard formulae to calculate the area and the volume of the cell or its nucleus, assuming that both the cell and its nucleus were shaped like ellipsoids or oblate spheroids (Benfey & Sutterlin, 1984; Gregory, 2024).
+
+The formula for cellular area (A) is:
+
+$$A = \pi \times \frac{a}{2} \times \frac{b}{2}$$
+
+```{r}
+# Calculate cell area and volume if missing
+dat$cell_area <- ifelse(is.na(dat$cell_area),
+                                   pi * (dat$cell_length/2) * (dat$cell_width/2),
+                                   dat$cell_area)
+
+dat$cell_volume <- ifelse(is.na(dat$cell_volume),
+                                     (4/3) * pi * (dat$cell_length/2) * (dat$cell_width/2)^2,
+                                     dat$cell_volume)
+```
+
+The formula for cellular volume (V) is:
+
+$$V = \frac{4}{3} \times \pi \times \frac{a}{2} \times \left(\frac{b}{2}\right)^2$$
+
+Where 'a' and 'b' denote the lengths of the semi-major and semi-minor axes of an ellipse, respectively.
+
+```{r}
+# Calculate nuclear area and volume if missing
+dat$nucleus_area <- ifelse(is.na(dat$nucleus_area),
+                                      pi * (dat$nucleus_length/2) * (dat$nucleus_width/2),
+                                      dat$nucleus_area)
+
+dat$nucleus_volume <- ifelse(is.na(dat$nucleus_volume),
+                                        (4/3) * pi * (dat$nucleus_length/2) * (dat$nucleus_width/2)^2,
+                                        dat$nucleus_volume)
+```
+
+## Extract names of countries using the geographical coordinates
+
+```{r}
+dat <- dat %>%
+  tidygeocoder::reverse_geocode(lat = lat_dec, 
+                                long = long_dec, 
+                                method = "osm") %>%
+  mutate(country_collection = sub(".*,\\s*", "", address))  # Extract country name
+```
+
+## Rename countries using names in English and create a column to assign sub-continent. 
+
+Many of the country names are in their native languages; therefore, I changed all the names to their official English versions.
+
+```{r}
+dat <- dat %>%
+  mutate(country_collection = case_when(
+    country_collection == "Bermuda" ~ "United Kingdom",
+    country_collection == "Bosna i Hercegovina / Босна и Херцеговина" ~ "Bosnia and Herzegovina",
+    country_collection == "Brasil" ~ "Brazil",
+    country_collection == "Česko" ~ "Czechia",
+    country_collection == "Congo" ~ "Democratic Republic of the Congo",
+    country_collection == "Deutschland" ~ "Germany",
+    country_collection == "España" ~ "Spain",
+    country_collection == "Italia" ~ "Italy",
+    country_collection == "Mauritius / Maurice" ~ "Mauritius",
+    country_collection == "México" ~ "Mexico",
+    country_collection == "Perú" ~ "Peru",
+    country_collection == "Norge" ~ "Norway",
+    country_collection == "Polska" ~ "Poland",
+    country_collection == "Türkiye" ~ "Turkey",
+    country_collection == "Sverige" ~ "Sweden",
+    country_collection == "United States" ~ "United States of America",
+    country_collection == "Ελλάς" ~ "Greece",
+    country_collection == "Россия" ~ "Russia",
+    country_collection == "Україна" ~ "Ukraine",
+    country_collection == "العراق" ~ "Iraq",  # Cambiado 'Irak' a 'Iraq'
+    country_collection == "پاکستان" ~ "Pakistan",
+    country_collection == "ایران" ~ "Iran",
+    country_collection == "سوريا" ~ "Syria",
+    country_collection == "مصر" ~ "Egypt",
+    country_collection == "عمان" ~ "Oman",
+    country_collection == "ประเทศไทย" ~ "Thailand",
+    country_collection == "বাংলাদেশ" ~ "Bangladesh",
+    country_collection == "대한민국" ~ "South Korea",
+    country_collection == "中国" ~ "China",
+    country_collection == "日本" ~ "Japan",
+    TRUE ~ country_collection
+  )) %>%
+  mutate(subcontinent = case_when(
+    country_collection %in% c("Argentina", "Brazil", "Chile", "Colombia", "Ecuador", "Peru", "Venezuela") ~ "South America",  # South America
+    country_collection %in% c("United States of America", "Mexico", "Bermuda") ~ "North America",  # North America
+    country_collection %in% c("United Kingdom", "Germany", "France", "Italy", "Spain", "Portugal", "Norway", "Sweden") ~ "Western Europe",  # Western Europe
+    country_collection %in% c("Russia", "Ukraine", "Poland", "Czechia", "Greece", "Bosnia and Herzegovina") ~ "Eastern Europe",  # Eastern Europe
+    country_collection %in% c("Iran", "Iraq", "Turkey", "Oman", "Syria") ~ "Middle East",  # Middle East
+    country_collection %in% c("India", "Pakistan", "Bangladesh") ~ "South Asia",  # South Asia
+    country_collection %in% c("China", "Japan", "South Korea") ~ "East Asia",  # East Asia
+    country_collection %in% c("Malaysia", "Thailand") ~ "Southeast Asia",  # Southeast Asia
+    country_collection %in% c("Egypt", "Nigeria", "Mauritius", "Niger", "Democratic Republic of the Congo") ~ "Africa",  # Africa
+    country_collection %in% c("Australia") ~ "Oceania",  # Oceania
+    TRUE ~ country_collection  # Default for unclassified countries
+  ))
+```
+
+Check again
+
+```{r}
+unique(dat$country_collection)
+```
+
+### Select the relevant columns and reorder
+
+```{r}
+# select relevant columns
+dat_cleaned <- dat %>%
+  select(-double_checked, -source, taxo_level, -isMarine, -isBrackish, -isFresh, -address)
+
+# reorder columns
+names(dat_cleaned)
+dat_cleaned <- dat_cleaned %>%
+  select(database, key, phylum, class, order, family, genus, species,species_reported, species_underscored,taxo_level,
+         realm,
+         lat_dec, long_dec, location_description, country_collection, subcontinent,
+         everything()) %>%
+  mutate(across(where(is.numeric), ~round(., digits = 4)))
+```
+
+## Studies over years
+
+```{r}
+# Panel A: Extracting and cleaning publication years:
+df_years <- refs %>%
+  as.data.frame() %>%
+  select(year) %>%
+  mutate(year = as.numeric(as.character(year))) %>%  # Ensure year is numeric
+  filter(!is.na(year))  # Remove NA values
+
+# Counting studies per year and calculating cumulative values:
+studies_per_year <- df_years %>%
+  group_by(year) %>%
+  summarise(num_studies = n()) %>%
+  arrange(year) %>%
+  mutate(cumulative_studies = cumsum(num_studies))  # Calculate cumulative count
+
+# Plotting the cumulative number of studies:
+plot_years <- ggplot(studies_per_year, aes(x = year, y = cumulative_studies)) +
+  geom_line(color = "#00AFBB", linewidth = 2) +
+  scale_y_continuous(limits = c(0, 200)) +  # Limit the y-axis to 200
+  scale_x_continuous(
+    limits = c(1875, 2025),
+    breaks = seq(1875, 2025, by = 25)  # Set x-axis intervals to 25 years
+  ) +
+  labs(
+    x = "Publication Year",
+    y = "Number of Studies"
+  ) +
+  theme_pubr() +
+  theme(
+    axis.title.x = element_text(face = "bold", size = 12),
+    axis.title.y = element_text(face = "bold", size = 12)
+  )
+
+# ------------------------------------------------------------------------------
+# Panel B: Extracting and counting journals
+df_journals <- refs %>%
+  as.data.frame() %>%
+  select(journal) %>%
+  filter(!is.na(journal)) %>%  # Remove missing journal entries
+  group_by(journal) %>%
+  summarise(num_articles = n()) %>%
+  arrange(desc(num_articles)) %>%
+  slice_head(n = 15)  # Select the top 15 journals
+
+# Plotting the 15 most common journals
+plot_journals <- ggplot(df_journals, aes(x = reorder(journal, num_articles), y = num_articles)) +
+  geom_bar(stat = "identity", fill = "#00AFBB", width = 0.7) +  
+  scale_y_continuous(limits = c(0, 20)) +  # Limit the y-axis to 20
+  coord_flip() +
+  theme_pubr() +
+  labs(
+    x = "Journal",
+    y = "Number of Studies"
+  ) +
+  theme(
+    axis.title.x = element_text(face = "bold", size = 12),
+    axis.title.y = element_text(face = "bold", size = 12),
+    axis.text.y = element_text(size = 10)  # Larger font size for journal names
+  )
+
+# ------------------------------------------------------------------------------
+# Combining Panel A and Panel B
+Figure_2 <- plot_grid(
+  plot_years, 
+  plot_journals,
+  labels = c("A", "B"),
+  nrow = 2,
+  ncol = 1,
+  label_size = 15
+)
+Figure_2
+
+# Saving the combined figure
+ggsave('../manuscript/Figure_2.pdf', Figure_2, width = 7, height = 9)
+ggsave('../manuscript/Figure_2.png', Figure_2, width = 7, height = 9, dpi = 1200)
+```
+
+## Global map of studies
+
+```{r}
+sort(unique(dat$realm))
+# [1] "freshwater"                 "freshwater-brackish"        "freshwater-brackish-marine"
+# [4] "marine"                     "marine-brackish"  
+
+fishualize("Hypleurochilus_fissicornis")
+
+class_realm <- c("freshwater",
+                 "freshwater-brackish",
+                 "freshwater-brackish-marine",
+                 "marine",
+                 "marine-brackish")
+
+
+# Lets use fishualize package to color the map (https://github.com/nschiett/fishualize)
+fish_palettes() # name of palettes
+fishualize("Scarus_quoyi")
+
+# Create the plot
+filtered_data <- dat %>%
+  filter(between(long_dec, -180, 180), between(lat_dec, -90, 90))  # Filtrar datos antes del gráfico
+
+cell_size_studies <-ggplot(filtered_data, aes(x = long_dec, y = lat_dec)) +
+  borders("world", colour = "gray40", fill = "grey90", size = 0.1) +
+  theme_map() +
+  geom_point(aes(fill = realm), size = 2, shape = 21, colour = "black", stroke = 0.2) +
+  scale_fill_fish_d(option = "Scarus_quoyi", 
+                    labels =  class_realm, name = "Realm") +
+  coord_quickmap(expand = FALSE) +
+  theme(
+    legend.position = c(0.03, 0.2),
+    legend.justification = c(0, 0),
+    legend.background = element_rect(fill = "transparent", color = NA),  # Remove legend frame
+    legend.margin = margin(2, 2, 2, 2),  # Reduce legend margin
+    legend.text = element_text(size = 8),  # Reduce legend text size
+    legend.title = element_text(size = 10, face = "bold"),
+    legend.key.size = unit(0.8, "lines"),  # Reduce legend symbol size
+    panel.background = element_rect(fill = "white"),
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 10),
+    axis.title.y = element_text(angle = 90, vjust = 0.5)  # Rotate y-axis title
+  ) +
+  guides(fill = guide_legend(override.aes = list(size = 2))) +
+  scale_x_continuous(name = "Longitude (degrees)", breaks = seq(-180, 180, 60)) +
+  scale_y_continuous(name = "Latitude (degrees)", breaks = seq(-90, 90, 30))
+cell_size_studies
+# ------------------------------------------------------------------------------
+# Summarise the data by country, counting occurrences of each key (study)
+dat_summary <- dat %>%
+  group_by(country_collection) %>%
+  filter(!is.na(country_collection)) %>%
+  summarise(study_count = length(unique(key)))  # Count occurrences of each reference per country
+
+names(dat_summary)
+
+# Obtener datos geoespaciales de los países
+world <- ne_download(scale = 110, type = "countries", category = "cultural", returnclass = "sf")
+
+# Unir los datos geoespaciales con los datos de estudios
+world_data <- world %>%
+  left_join(dat_summary, by = c("SOVEREIGNT" = "country_collection"))
+
+# Crear el mapa con ggplot2
+country_studies <- ggplot(world_data) +
+  geom_sf(aes(fill = study_count), color = "gray40") +  # Map studies by country
+  theme_map() +
+  scale_fill_gradient2(high ="#0571b0" , 
+                       na.value = "grey90", 
+                       name = "Nº Studies") +
+  coord_sf(expand = FALSE) +  # Use coord_sf for spatial data
+  theme(
+    legend.position = c(0.03, 0.2),
+    legend.justification = c(0, 0),
+    legend.background = element_rect(fill = "transparent", color = NA),  # Remove legend frame
+    legend.margin = margin(2, 2, 2, 2),  # Reduce legend margin
+    legend.text = element_text(size = 8),
+    legend.title = element_text(size = 10, face = "bold"),
+    legend.key.size = unit(0.8, "lines"),
+    panel.background = element_rect(fill = "white"),
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 10),
+    axis.title.y = element_text(angle = 90, vjust = 0.5)
+  ) +
+  scale_x_continuous(name = "Longitude (degrees)", 
+                     breaks = seq(-180, 180, 60), 
+                     labels = scales::number_format(accuracy = 1)) +  # Remove 'E'/'W'
+  scale_y_continuous(name = "Latitude (degrees)", 
+                     breaks = seq(-90, 90, 30), 
+                     labels = scales::number_format(accuracy = 1)) +  # Remove 'N'/'S'
+  guides(fill = guide_legend(override.aes = list(size = 2)))  # Adjust legend symbol size
+
+country_studies
+
+# Counting Studies Per Subcontinent
+subconti_by_studies <- dat %>%
+  filter(!is.na(subcontinent)) %>% 
+  group_by(subcontinent) %>%
+  summarise(num_studies = n_distinct(key)) %>%
+  arrange(desc(num_studies))
+
+# Plotting Studies by subcontinent
+plot_subcont <- ggplot(subconti_by_studies, aes(x = reorder(subcontinent, num_studies), y = num_studies)) +
+  geom_bar(stat = "identity", fill = "#00AFBB", width = 0.7) +
+  coord_flip() +
+  theme_pubr() +
+  labs(
+    x = "Subcontinent",
+    y = "Number of Studies"
+  ) +
+  theme(
+    axis.title.x = element_text(face = "bold", size = 12),
+    axis.title.y = element_text(face = "bold", size = 12),
+    axis.text.y = element_text(size = 10) 
+  )
+plot_subcont
+
+# Combine Plots
+Figure_3 <- plot_grid(
+  cell_size_studies, 
+  country_studies,
+  plot_subcont,
+  labels = c("A", "B", "C"), 
+  nrow = 3,  
+  ncol = 1,  
+  label_size = 15
+)
+
+# Display the figure
+Figure_3
+
+# Store Plots
+ggsave('../manuscript/Figure_3.pdf', Figure_3, width = 7, height = 10)
+ggsave('../manuscript/Figure_3.png', Figure_3, width = 7, height = 10, dpi = 1200)
+```
+
+## Phylogenetic tree with data
+
+```{r}
+# Summaries data: calculate the mean value per species for each trait
+summary_data <- dat %>%
+  group_by(species_underscored) %>%
+  summarise(across(c(cell_area, cell_volume, nucleus_area, nucleus_volume, mcv), 
+                   ~ mean(., na.rm = TRUE)), 
+            .groups = "drop") 
+
+summary_data <- summary_data %>%
+  mutate(across(c(cell_area, cell_volume, nucleus_area, nucleus_volume, mcv), 
+                ~ (.-min(., na.rm = TRUE)) / (max(., na.rm = TRUE) - min(., na.rm = TRUE))))  # Escalado min-max global por variable
+
+# ------------------------------------------------------------------------------
+# Script section adapted by FPLeiva after RMolinaVenegas (Gracias Rafa)
+summary_data
+unique(summary_data$species_underscored)
+
+# Identify species to drop
+species_to_drop <- setdiff(tree$tip.label, summary_data$species_underscored)
+
+# Prune the tree
+tree <- drop.tip(tree, species_to_drop)
+
+# Align data and tree
+datF <- summary_data %>%
+  column_to_rownames("species_underscored")
+
+dat_tree <- datF %>%
+  filter(row.names(.) %in% tree$tip.label)
+
+# Add missing species
+missing_species <- setdiff(tree$tip.label, row.names(dat_tree))
+dat_tree_NA <- data.frame(matrix(NA, nrow = length(missing_species), ncol = ncol(datF)))
+row.names(dat_tree_NA) <- missing_species
+colnames(dat_tree_NA) <- colnames(datF)
+Data <- rbind(dat_tree, dat_tree_NA)
+Data <- Data[match(tree$tip.label, row.names(Data)), ]
+
+# ------------------------------------------------------------------------------
+# Plot with species without names
+circ <- ggtree(tree, layout = "fan", open.angle = 15)
+circ <- rotate_tree(circ, 90)
+circ
+# ------------------------------------------------------------------------------
+# Create a new plot with heatmap for each trait using a single scale
+tree_data <- gheatmap(
+  circ, 
+  Data, 
+  width = 0.2, 
+  offset = 0,  # Offset for placing the heatmap
+  colnames_offset_x = 0, 
+  colnames_offset_y = 0, 
+  font.size = 4, 
+  hjust = 0
+)
+tree_data
+
+# Apply the same scale for all traits
+tree_data <- tree_data +
+  scale_fill_viridis_c(option = "H", name = "Relative Cell Size Traits", na.value = "grey90") +
+  theme(
+    legend.position = c(0.6, 0.5),  # Leyenda dentro del gráfico
+    legend.title.position = "top",  # Título encima de la barra de color
+    legend.title.align = 0.5,  # Centrar título
+    legend.direction = "horizontal",  # Leyenda horizontal
+    legend.key = element_blank(),
+    legend.background=element_blank(),  # Sin caja en la leyenda
+    legend.key.width = unit(1, "cm"),
+    legend.key.height = unit(0.7, "cm")
+  )
+
+tree_data
+
+ggsave("../manuscript/Figure_4.png", tree_data, width = 12, height = 12, dpi = 1200)
+ggsave("../manuscript/Figure_4.pdf", tree_data, width = 12, height = 12)
+# ------------------------------------------------------------------------------
+
+# Plot with species names
+circ_names <- ggtree(tree, layout = "fan", open.angle = 15) + 
+  geom_tiplab(offset = 0.22, hjust = 0, size = 0.8)
+circ_names <- rotate_tree(circ_names, 90)
+
+# Create a new plot with heatmap for each trait using a single scale
+tree_data_names <- gheatmap(
+  circ_names, 
+  Data, 
+  width = 0.2, 
+  offset = 0,  # Offset for placing the heatmap
+  colnames_offset_x = 0, 
+  colnames_offset_y = 0, 
+  font.size = 4, 
+  hjust = 0
+)
+tree_data_names
+
+# Apply the same scale for all traits
+tree_data_names <- tree_data_names +
+  scale_fill_viridis_c(option = "H", name = "Relative Cell Size Traits ", na.value = "grey90") +
+  theme(
+    legend.position = c(0.6, 0.5),  # Leyenda dentro del gráfico
+    legend.title.position = "top",  # Título encima de la barra de color
+    legend.title.align = 0.5,  # Centrar título
+    legend.direction = "horizontal",  # Leyenda horizontal
+    legend.key = element_blank(),
+    legend.background=element_blank(),  # Sin caja en la leyenda
+    legend.key.width = unit(1, "cm"),
+    legend.key.height = unit(0.7, "cm")
+  )
+
+tree_data_names
+
+ggsave("../manuscript/Figure_S1.png", tree_data_names, width = 12, height = 12, dpi = 1200)
+ggsave("../manuscript/Figure_S1.pdf", tree_data_names, width = 12, height = 12)
+```
+
+## Most common species in the database
+
+```{r}
+# Counting Studies Per Species
+species_by_studies <- dat %>%
+  group_by(species) %>%
+  summarise(num_studies = n_distinct(key)) %>%
+  arrange(desc(num_studies)) %>%
+  slice_head(n = 15)  # Limit to top 15 species based on the number of studies
+
+plot_studies <- ggplot(species_by_studies, aes(x = reorder(species, num_studies), y = num_studies)) +
+  geom_bar(stat = "identity", fill = "#00AFBB", width = 0.7) +
+  coord_flip() +
+  theme_pubr() +
+  labs(
+    x = "Species",
+    y = "Number of Studies"
+  ) +
+  theme(
+    axis.title.x = element_text(face = "bold", size = 12),
+    axis.title.y = element_text(face = "bold", size = 12),
+    axis.text.y = element_text(size = 10, face = "italic")  # Italicise species names
+  )
+plot_studies
+
+# ------------------------------------------------------------------------------
+# Counting Records Per Species
+species_by_records <- dat %>%
+  group_by(species) %>%
+  summarise(num_records = n()) %>%
+  arrange(desc(num_records)) %>%
+  slice_head(n = 15)  # Limit to top 15 species based on the number of records
+
+plot_records <- ggplot(species_by_records, aes(x = reorder(species, num_records), y = num_records)) +
+  geom_bar(stat = "identity", fill = "#009E73", width = 0.7) +
+  coord_flip() +
+  theme_pubr() +
+  labs(
+    x = "Species",
+    y = "Number of Records"
+  ) +
+  theme(
+    axis.title.x = element_text(face = "bold", size = 12),
+    axis.title.y = element_text(face = "bold", size = 12),
+    axis.text.y = element_text(size = 10, face = "italic")  # Italicise species names
+  )
+plot_records
+
+# ------------------------------------------------------------------------------
+# Combine Plots
+Figure_5 <- plot_grid(
+  plot_studies, 
+  plot_records,
+  labels = c("A", "B"),
+  nrow = 2,
+  ncol = 1,
+  label_size = 15,
+  align = "hv"
+)
+
+# Store Plots
+ggsave('../manuscript/Figure_5.pdf', Figure_5, width = 7, height = 9)
+ggsave('../manuscript/Figure_5.png', Figure_5, width = 7, height = 9, dpi = 1200)
+```
+
+## Studies and metadata
+
+```{r}
+# Counting Studies Per Life Stage
+life_stage_by_studies <- dat %>%
+  mutate(life_stage = ifelse(is.na(life_stage), "not reported", life_stage)) %>%
+  group_by(life_stage) %>%
+  summarise(num_studies = n_distinct(key)) %>%
+  arrange(desc(num_studies))
+
+# Plotting Studies by Life Stage
+plot_life_stages <- ggplot(life_stage_by_studies, aes(x = reorder(life_stage, num_studies), y = num_studies)) +
+  geom_bar(stat = "identity", fill = "#00AFBB", width = 0.7) +
+  coord_flip() +
+  theme_pubr() +
+  labs(
+    x = "Life Stage",
+    y = "Number of Studies"
+  ) +
+  theme(
+    axis.title.x = element_text(face = "bold", size = 12),
+    axis.title.y = element_text(face = "bold", size = 12),
+    axis.text.y = element_text(size = 10)  # Adjust font size for life stage names
+  )
+plot_life_stages
+
+# ------------------------------------------------------------------------------
+# Counting Studies Per Sex
+sex_by_studies <- dat %>%
+  mutate(sex = ifelse(is.na(sex), "not reported", sex)) %>%
+  group_by(sex) %>%
+  summarise(num_studies = n_distinct(key)) %>%
+  arrange(desc(num_studies))
+
+# Plotting Studies by Sex
+plot_sex <- ggplot(sex_by_studies, aes(x = reorder(sex, num_studies), y = num_studies)) +
+  geom_bar(stat = "identity", fill = "#00AFBB", width = 0.7) +
+  coord_flip() +
+  theme_pubr() +
+  labs(
+    x = "Sex",
+    y = "Number of Studies"
+  ) +
+  theme(
+    axis.title.x = element_text(face = "bold", size = 12),
+    axis.title.y = element_text(face = "bold", size = 12),
+    axis.text.y = element_text(size = 10)  # Adjust font size for sex labels
+  )
+plot_sex
+# ------------------------------------------------------------------------------  
+# Counting Studies Per Realm
+realm_by_studies <- dat %>%
+  group_by(realm) %>%
+  summarise(num_studies = n_distinct(key)) %>%
+  arrange(desc(num_studies))
+
+# Plotting Studies by Realm
+plot_realm <- ggplot(realm_by_studies, aes(x = reorder(realm, num_studies), y = num_studies)) +
+  geom_bar(stat = "identity", fill = "#00AFBB", width = 0.7) +
+  coord_flip() +
+  theme_pubr() +
+  labs(
+    x = "Realms",
+    y = "Number of Studies"
+  ) +
+  theme(
+    axis.title.x = element_text(face = "bold", size = 12),
+    axis.title.y = element_text(face = "bold", size = 12),
+    axis.text.y = element_text(size = 10)  # Adjust font size for realm labels
+  )
+plot_realm
+
+# ------------------------------------------------------------------------------
+# Combine Plots
+Figure_6 <- plot_grid(
+  plot_sex, 
+  plot_life_stages,
+  plot_realm,
+  labels = c("A", "B", "C"),
+  nrow = 3,
+  ncol = 1,
+  label_size = 15,
+  align = "hv"
+)
+
+# Store Plots
+ggsave('../manuscript/Figure_6.pdf', Figure_6, width = 5, height = 8)
+ggsave('../manuscript/Figure_6.png', Figure_6, width = 5, height = 8, dpi = 1200)
+```
+
+## Cell size traits
+
+```{r}
+# Define colors for each class
+cols_class <- c("Actinopteri"    = "#ef5675",
+                "Chondrichthyes" = "#7a5195",
+                "Cyclostomata"   = "#075983",
+                "Dipnoi"         = "#ffa600")
+# ------------------------------------------------------------------------------
+# Clean the data for cell area
+dat_clean_cell_area <- dat %>%
+  filter(!is.na(cell_area))
+
+# Calculate summary statistics of cell area for each class
+df_summary <- dat_clean_cell_area %>%
+  group_by(class) %>%
+  summarise(
+    n_species = n_distinct(species),
+    n_obs = n(),
+    max_y_cell_area = max(cell_area, na.rm = TRUE))
+
+# Plot for Cell Area
+plot_cell_area <- ggplot(dat_clean_cell_area, aes(x = class, y = cell_area, fill = class)) +
+  geom_boxplot(width = 0.6, 
+               fill = "white",
+               outlier.shape = NA) +
+  geom_text(data = df_summary, 
+            aes(y = max_y_cell_area, label = paste0("N = ", n_obs, "\n(", n_species, " spp.)")), 
+            vjust = -0.5, size = 2) +
+  theme_pubr() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(size = 6),
+    axis.text.y = element_text(size = 6),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 10),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 1)
+  ) +
+  labs(y = expression("Cell area (" * mu * m^2 * ")")) +
+  scale_y_log10(
+    breaks = c(10, 20, 50, 150, 350, 1000),
+    limits = c(NA, 2000)
+  ) +
+  scale_fill_manual(values = cols_class) +  # For boxplot fill
+  scale_color_manual(values = cols_class) +
+  geom_point(
+    aes(colour = class),
+    size = 1,
+    alpha = .2,
+    position = position_jitter(
+      seed = 1, width = .2
+    ))
+
+plot_cell_area
+# ------------------------------------------------------------------------------
+# Clean the data for cell volume
+dat_clean_cell_volume <- dat %>%
+  filter(!is.na(cell_volume))
+
+# Calculate summary statistics of cell area for each class
+df_summary <- dat_clean_cell_volume %>%
+  group_by(class) %>%
+  summarise(
+    n_species = n_distinct(species),
+    n_obs = n(),
+    max_y_cell_volume = max(cell_volume, na.rm = TRUE))
+
+# Plot for Cell Volume
+plot_cell_volume <- ggplot(dat_clean_cell_volume, aes(x = class, y = cell_volume, fill = class)) +
+  geom_boxplot(width = 0.6, 
+               fill = "white",
+               outlier.shape = NA) +
+  geom_text(data = df_summary, 
+            aes(y = max_y_cell_volume, label = paste0("N = ", n_obs, "\n(", n_species, " spp.)")), 
+            vjust = -0.5, size = 2) +
+  theme_pubr() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(size = 6),
+    axis.text.y = element_text(size = 6),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 10),  # Reduce font size of the y-axis title
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 1)
+  ) +
+  labs(y = expression("Cell volume (" * mu * m^3 * ")")) +
+  scale_y_log10(
+    breaks = c(10, 20, 50, 150, 350, 800, 2000, 6000, 20000),
+    limits = c(NA, 40000)
+  ) +
+  scale_fill_manual(values = cols_class) +  # For boxplot fill
+  scale_color_manual(values = cols_class) +
+  geom_point(
+    aes(colour = class),
+    size = 1,
+    alpha = .2,
+    position = position_jitter(
+      seed = 1, width = .2
+    ))
+plot_cell_volume
+# ------------------------------------------------------------------------------
+# Clean the data for nucleus area
+dat_clean_nucleus_area <- dat %>%
+  filter(!is.na(nucleus_area))
+
+# Calculate summary statistics of nucleus area for each class
+df_summary <- dat_clean_nucleus_area %>%
+  group_by(class) %>%
+  summarise(
+    n_species = n_distinct(species),
+    n_obs = n(),
+    max_y_nucleus_area = max(nucleus_area, na.rm = TRUE))
+
+# Plot for Nucleus Area
+plot_nucleus_area <- ggplot(dat_clean_nucleus_area, aes(x = class, y = nucleus_area, fill = class)) +
+  geom_boxplot(width = 0.6, 
+               fill = "white",
+               outlier.shape = NA) +
+  geom_text(data = df_summary, 
+            aes(y = max_y_nucleus_area, label = paste0("N = ", n_obs, "\n(", n_species, " spp.)")), 
+            vjust = -0.5, size = 2) +
+  theme_pubr() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(size = 6),
+    axis.text.y = element_text(size = 6),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 10),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 1)
+  ) +
+  labs(y = expression("Nucleus area (" * mu * m^2 * ")")) +
+  scale_y_log10(
+    breaks = c(0, 5, 10, 20, 50, 100, 200),
+    limits = c(NA, 250)
+  ) +
+  scale_fill_manual(values = cols_class) +  # For boxplot fill
+  scale_color_manual(values = cols_class) +
+  geom_point(
+    aes(colour = class),
+    size = 1,
+    alpha = .2,
+    position = position_jitter(
+      seed = 1, width = .2
+    ))
+
+plot_nucleus_area
+# ------------------------------------------------------------------------------
+# Clean the data for nucleus volume
+dat_clean_nucleus_volume <- dat %>%
+  filter(!is.na(nucleus_volume))
+
+# Calculate summary statistics of nucleus volume for each class
+df_summary <- dat_clean_nucleus_volume %>%
+  group_by(class) %>%
+  summarise(
+    n_species = n_distinct(species),
+    n_obs = n(),
+    max_y_nucleus_volume = max(nucleus_volume, na.rm = TRUE))
+
+# Plot for Nucleus Volume
+plot_nucleus_volume <- ggplot(dat_clean_nucleus_volume, aes(x = class, y = nucleus_volume, fill = class)) +
+  geom_boxplot(width = 0.6, 
+               fill = "white",
+               outlier.shape = NA) +
+  geom_text(data = df_summary, 
+            aes(y = max_y_nucleus_volume, label = paste0("N = ", n_obs, "\n(", n_species, " spp.)")), 
+            vjust = -0.5, size = 2) +
+  theme_pubr() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(size = 6),
+    axis.text.y = element_text(size = 6),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 10),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 1)
+  ) +
+  labs(y = expression("Nucleus volume (" * mu * m^3 * ")")) +
+  scale_y_log10(
+    breaks = c(10, 20, 50, 150, 350, 1000),
+    limits = c(NA, 2000)
+  ) +
+  scale_fill_manual(values = cols_class) +  # For boxplot fill
+  scale_color_manual(values = cols_class) +  # For point colours
+  geom_point(
+    aes(colour = class),
+    size = 1,
+    alpha = .2,
+    position = position_jitter(
+      seed = 1, width = .2
+    ))
+
+plot_nucleus_volume
+# ------------------------------------------------------------------------------
+# Clean the data for mcv
+dat_clean_mcv <- dat %>%
+  filter(!is.na(mcv))
+
+# Calculate summary statistics of mcv for each class
+df_summary <- dat_clean_mcv %>%
+  group_by(class) %>%
+  summarise(
+    n_species = n_distinct(species),
+    n_obs = n(),
+    max_y_mcv = max(mcv, na.rm = TRUE))
+
+plot_mcv <- ggplot(dat_clean_mcv, aes(x = class, y = mcv, fill = class)) +
+  geom_boxplot(width = 0.6, 
+               fill = "white",
+               outlier.shape = NA) +
+  geom_text(data = df_summary, 
+            aes(y = max_y_mcv, label = paste0("N = ", n_obs, "\n(", n_species, " spp.)")), 
+            vjust = -0.5, size = 2) +
+  theme_pubr() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(size = 6),
+    axis.text.y = element_text(size = 6),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 10),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 1)
+  ) +
+  labs(y = expression("Mean corpuscular volume (" * mu * m^3 * ")")) +
+  scale_y_log10(
+    breaks = c(10, 20, 50, 150, 350, 800, 2000, 6000),
+    limits = c(NA, 15000)
+  ) +
+  scale_fill_manual(values = cols_class) +  # For boxplot fill
+  scale_color_manual(values = cols_class) +  # For point colours
+  geom_point(
+    aes(colour = class),
+    size = 1,
+    alpha = .2,
+    position = position_jitter(
+      seed = 1, width = .2
+    ))
+
+plot_mcv
+# ------------------------------------------------------------------------------
+# Align the plots in a grid layout
+Figure_7 <- plot_grid(
+  plot_cell_area + theme(plot.margin = unit(c(1, 0, 0, 0.2), "cm")), 
+  plot_nucleus_area + theme(plot.margin = unit(c(1, 0.5, 0, 0), "cm")),
+  plot_cell_volume + theme(plot.margin = unit(c(1, 0, 0, 0.2), "cm")), 
+  plot_nucleus_volume + theme(plot.margin = unit(c(1, 0.5, 0, 0), "cm")),
+  plot_mcv + theme(plot.margin = unit(c(1, 0, 0, 0.2), "cm")),
+  labels = c("A", "B", "C", "D", "E"),
+  nrow = 3,
+  label_size = 14,  # Slightly smaller labels for compact layout
+  label_fontface = "bold",  # Optional: Make labels bold for clarity
+  label_x = 0.1,  # Move labels closer to the plots horizontally
+  label_y = 0.96,  # Adjust vertical placement of labels
+  align = "hv"  # Ensure alignment
+)
+
+## Store Plots
+ggsave('../manuscript/Figure_7.pdf', Figure_7, width = 7, height = 9)
+ggsave('../manuscript/Figure_7.png', Figure_7, width = 7, height = 9, dpi = 1200)
+```
+
+## Supplementary material
+
+### Summaries data: calculate the mean value per species for each trait ONLY for bony fishes
+
+```{r}
+summary_data_act <- dat %>%
+  filter(class == "Actinopteri") %>%
+  group_by(species_underscored) %>%
+  summarise(across(c(cell_area, cell_volume, nucleus_area, nucleus_volume, mcv), 
+                   ~ mean(., na.rm = TRUE)), 
+            .groups = "drop") 
+
+summary_data_act <- summary_data_act %>%
+  mutate(across(c(cell_area, cell_volume, nucleus_area, nucleus_volume, mcv), 
+                ~ (.-min(., na.rm = TRUE)) / (max(., na.rm = TRUE) - min(., na.rm = TRUE))))  # Escalado min-max global por variable
+summary_data_act
+unique(summary_data_act$species_underscored)
+
+# Identify species to drop
+species_to_drop <- setdiff(tree$tip.label, summary_data_act$species_underscored)
+# we will drop 80 species (no bony fishes) from the tree
+
+# Prune the tree
+tree_act <- drop.tip(tree, species_to_drop)
+
+# Align data and tree
+datF <- summary_data_act %>%
+  column_to_rownames("species_underscored")
+
+dat_tree <- datF %>%
+  filter(row.names(.) %in% tree_act$tip.label)
+
+# Add missing species
+missing_species <- setdiff(tree_act$tip.label, row.names(dat_tree))
+dat_tree_NA <- data.frame(matrix(NA, nrow = length(missing_species), ncol = ncol(datF)))
+row.names(dat_tree_NA) <- missing_species
+colnames(dat_tree_NA) <- colnames(datF)
+Data <- rbind(dat_tree, dat_tree_NA)
+Data <- Data[match(tree_act$tip.label, row.names(Data)), ]
+
+# Plot with species names
+circ_names_act <- ggtree(tree_act, layout = "fan", open.angle = 15, branch.length="none") + 
+  geom_tiplab(offset = 8, hjust = 0, size = 0.9)
+circ_names_act <- rotate_tree(circ_names_act, 90)
+circ_names_act
+
+# Create a new plot with heatmap for each trait using a single scale
+tree_data_act <- gheatmap(
+  circ_names_act, 
+  Data, 
+  width = 0.2, 
+  offset = 0,  
+  colnames_offset_x = 0, 
+  colnames_offset_y = 0, 
+  font.size = 4, 
+  hjust = 0
+)
+tree_data_act
+
+# Apply the same scale for all traits
+tree_data_act <- tree_data_act +
+  scale_fill_viridis_c(option = "H", name = "Relative Cell Size Traits ", na.value = "grey90") +
+  theme(
+    legend.position = c(0.59, 0.55), 
+    legend.title.position = "top", 
+    legend.title.align = 0.5,
+    legend.direction = "horizontal",
+    legend.key = element_blank(),
+    legend.background=element_blank(),
+    legend.key.width = unit(0.9, "cm"),
+    legend.key.height = unit(0.7, "cm")
+  )
+
+tree_data_act
+
+ggsave("../manuscript/Figure_S2.png", tree_data_act, width = 12, height = 12, dpi = 1200)
+ggsave("../manuscript/Figure_S2.pdf", tree_data_act, width = 12, height = 12)
+
+# ------------------------------------------------------------------------------
+```
+
+### Summaries data: calculate the mean value per species for each trait in Chondrichthyes, Dipnoi, Cyclostomata
+
+```{r}
+summary_data_no_act <- dat %>%
+  filter(class != "Actinopteri") %>%
+  group_by(species_underscored) %>%
+  summarise(across(c(cell_area, cell_volume, nucleus_area, nucleus_volume, mcv), 
+                   ~ mean(., na.rm = TRUE)), 
+            .groups = "drop") 
+
+summary_data_no_act <- summary_data_no_act %>%
+  mutate(across(c(cell_area, cell_volume, nucleus_area, nucleus_volume, mcv), 
+                ~ (.-min(., na.rm = TRUE)) / (max(., na.rm = TRUE) - min(., na.rm = TRUE))))  # Escalado min-max global por variable
+summary_data_no_act
+unique(summary_data_no_act$species_underscored)
+
+# Identify species to drop
+species_to_drop <- setdiff(tree$tip.label, summary_data_no_act$species_underscored)
+
+# Prune the tree
+tree_no_act <- drop.tip(tree, species_to_drop)
+
+# Align data and tree
+datF <- summary_data_no_act %>%
+  column_to_rownames("species_underscored")
+
+dat_tree <- datF %>%
+  filter(row.names(.) %in% tree_no_act$tip.label)
+
+# Add missing species
+missing_species <- setdiff(tree_no_act$tip.label, row.names(dat_tree))
+dat_tree_NA <- data.frame(matrix(NA, nrow = length(missing_species), ncol = ncol(datF)))
+row.names(dat_tree_NA) <- missing_species
+colnames(dat_tree_NA) <- colnames(datF)
+Data <- rbind(dat_tree, dat_tree_NA)
+Data <- Data[match(tree_no_act$tip.label, row.names(Data)), ]
+
+# Plot with species names
+circ_names_no_act <- ggtree(tree_no_act, layout = "fan", open.angle = 15, branch.length="none") + 
+  geom_tiplab(offset = 4, hjust = 0, size = 2)
+circ_names_no_act <- rotate_tree(circ_names_no_act, 90)
+circ_names_no_act
+
+# Create a new plot with heatmap for each trait using a single scale
+tree_data_no_act <- gheatmap(
+  circ_names_no_act, 
+  Data, 
+  width = 0.2, 
+  offset = 0,
+  colnames_offset_x = 0, 
+  colnames_offset_y = 0, 
+  font.size = 3, 
+  hjust = 0
+)
+tree_data_no_act
+
+# Apply the same scale for all traits
+tree_data_no_act <- tree_data_no_act +
+  scale_fill_viridis_c(option = "H", 
+                       name = "Relative Cell Size Traits ", 
+                       na.value = "grey90") +
+  theme(
+    legend.position = c(0.6, 0.55),
+    legend.title.position = "top",
+    legend.title.align = 0.5,
+    legend.direction = "horizontal",
+    legend.key = element_blank(),
+    legend.background=element_blank(),
+    legend.key.width = unit(1, "cm"),
+    legend.key.height = unit(0.7, "cm")
+  )
+
+tree_data_no_act
+
+ggsave("../manuscript/Figure_S3.png", tree_data_no_act, width = 12, height = 12, dpi = 1200)
+ggsave("../manuscript/Figure_S3.pdf", tree_data_no_act, width = 12, height = 12)
+```
+
+## References
+
+-   Pottier, P., Burke, S., Drobniak, S. M., Lagisz, M. & Nakagawa, S. Sexual (in)equality? A meta-analysis of sex differences in thermal acclimation capacity across ectotherms. Functional Ecology **35**, 2663–2678 (2021).
+
+-   Benfey, T. J. & Sutterlin, A. M. The haematology of triploid landlocked Atlantic salmon, *Salmo solar* L. Journal of Fish Biology **24**, 333–338 (1984).
+
+-   Gregory, T. R. Animal genome size database. <http://www.genomesize.com/.> (2024).
+
+## Session information
+
+```{r}
+sessioninfo::session_info() %>%
+  details(summary = 'Current Session Information', open = TRUE)
+```
