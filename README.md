@@ -8,7 +8,11 @@ When using the data and/or code associated with this project, they should be cit
 
 
 ## Licence
+<<<<<<< HEAD
 This repository is provided by the authors under the under the licence Attribution-NonCommercial-NoDerivatives 4.0 International.
+=======
+This repository is provided by the authors under the [Attribution-NonCommercial-NoDerivatives 4.0 International](https://creativecommons.org/licenses/by-nc-nd/4.0/) licence
+>>>>>>> b03177a458238b26a0d6303b05931c83af008533
 
 ## Contact information
 This script was authored by Félix P. Leiva
