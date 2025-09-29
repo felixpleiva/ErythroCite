@@ -1,3 +1,4 @@
+## Citation
 When using the data and/or code associated with this project, they should be cited as follows:
 
 Leiva, F. P., Molina-Venegas, R., Alter, K., Freire, C.A., Hendriks A. J., Hermaniuk, A., Serre-Fredj, L., Shokri, M., Czarnoleski, M., & Mark, F. C. (2025). ErythroCite: A systematic map and open-source database on red blood cell size of fishes.
