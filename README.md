@@ -2,7 +2,7 @@ When using the data and/or code associated with this project, they should be cit
 
 Leiva, F. P., Molina-Venegas, R., Alter, K., Freire, C.A., Hendriks A. J., Hermaniuk, A., Serre-Fredj, L., Shokri, M., Czarnoleski, M., & Mark, F. C. (2025). ErythroCite: A systematic map and open-source database on red blood cell size of fishes.
 
-Leiva, F. P., Molina-Venegas, R., Alter, K., Freire, C. A., Hendriks A. J., Hermaniuk, A., Serre-Fredj, L., Shokri, M., Czarnoleski, M., & Mark, F. C. (2025). ErythroCite: A systematic map and open-source database on red blood cell size of fishes. Zenodo. DOI will be available soon.
+Leiva, F. P., Molina-Venegas, R., Alter, K., Freire, C. A., Hendriks A. J., Hermaniuk, A., Serre-Fredj, L., Shokri, M., Czarnoleski, M., & Mark, F. C. (2025). ErythroCite: A systematic map and open-source database on red blood cell size of fishes. Zenodo. https://doi.org/10.5281/zenodo.14781325.
 
 
 ## Licence
