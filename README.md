@@ -1,13 +1,13 @@
 ## Website
-This code routine may contain typographical errors, specific lines of code, or comments in Spanish (my native language). I apologise for any inconvenience this might cause in understanding the code.
 
-I will update the GitHub repository with any identified errors when appropriate. Therefore, I strongly recommend users to check the repository where the data are stored: https://github.com/felixpleiva/ErythroCite. This ensures access to the most current version of the code and data.
+https://felixpleiva.github.io/ErythroCite/
 
-Should you encounter any errors in the code or data, please let me know via email.
+This workflow may contain typographical errors, specific lines of code, or comments in Spanish (my native language). I apologise for any inconvenience this might cause in understanding the code.
+
+Should you encounter any errors in the code or data, please let me know via email (felixpleiva@gmail.com).
 
 Gracias!
 
-https://felixpleiva.github.io/ErythroCite/
 
 ## Citation
 When using the data and/or code associated with this project, they must be cited as follows:
