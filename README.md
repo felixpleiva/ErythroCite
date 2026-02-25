@@ -12,7 +12,7 @@ Gracias!
 ## Citation
 When using the data and/or code associated with this project, they must be cited as follows:
 
-Leiva, F. P., Molina-Venegas, R., Alter, K., Freire, C.A., Hendriks A. J., Hermaniuk, A., Serre-Fredj, L., Shokri, M., Czarnoleski, M., & Mark, F. C. (2026). ErythroCite: a database on red blood cell size of fishes. Scientific Data.
+Leiva, F. P., Molina-Venegas, R., Alter, K., Freire, C.A., Hendriks A. J., Hermaniuk, A., Serre-Fredj, L., Shokri, M., Czarnoleski, M., & Mark, F. C. (2026). ErythroCite: a database on red blood cell size of fishes. Scientific Data. https://doi.org/10.1038/s41597-026-06904-1.
 
 Leiva, F. P., Molina-Venegas, R., Alter, K., Freire, C. A., Hendriks A. J., Hermaniuk, A., Serre-Fredj, L., Shokri, M., Czarnoleski, M., & Mark, F. C. (2026). ErythroCite: a database on red blood cell size of fishes. Zenodo. https://doi.org/10.5281/zenodo.18543381.
 
