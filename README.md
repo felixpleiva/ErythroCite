@@ -19,5 +19,3 @@ This repository is provided by the authors under the [Attribution 4.0 Internatio
 
 ## Disclaimer
 I will update the GitHub repository with any identified errors when appropriate. Therefore, I strongly recommend users to check the repository where the data are stored: https://github.com/felixpleiva/ErythroCite. This ensures access to the most current version of the code and data.
-
-Gracias!
